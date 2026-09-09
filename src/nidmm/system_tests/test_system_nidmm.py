@@ -327,9 +327,63 @@ class TestLibrary(SystemTests):
             assert not math.isnan(sample)
 
 
-class TestGrpc(SystemTests):
+class TestGrpcSecuredTLS(SystemTests):
     @pytest.fixture(scope='class')
     def grpc_channel(self):
+        system_test_utilities.write_grpc_device_server_config(use_tls_config=True)
+        system_test_utilities.exchange_certificates("localhost")
+        system_test_utilities.configure_tls_modes(
+            "ni-grpc-device-server",
+            "localhost",
+            "Disabled",
+            "Disabled",
+            "Disabled",
+            "Disabled"
+        )
+
+        current_directory = os.path.dirname(os.path.abspath(__file__))
+        config_file_path = os.path.join(current_directory, 'grpc_server_config.json')
+        with system_test_utilities.GrpcServerProcess(config_file_path) as proc:
+            channel = grpc.insecure_channel(f"localhost:{proc.server_port}")
+            yield channel
+
+    @pytest.fixture(scope='class')
+    def session_creation_kwargs(self, grpc_channel):
+        grpc_options = nidmm.GrpcSessionOptions(grpc_channel, '')
+        return {'grpc_options': grpc_options}
+
+
+class TestGrpcUnsecuredTLS(SystemTests):
+    @pytest.fixture(scope='class')
+    def grpc_channel(self):
+        system_test_utilities.write_grpc_device_server_config(use_tls_config=True)
+        system_test_utilities.exchange_certificates("localhost")
+        system_test_utilities.configure_tls_modes(
+            "ni-grpc-device-server",
+            "localhost",
+            "ManagedSelfSigned",
+            "ManagedSelfSigned",
+            "Managed",
+            "TrustedCertificates"
+        )
+
+        current_directory = os.path.dirname(os.path.abspath(__file__))
+        config_file_path = os.path.join(current_directory, 'grpc_server_config.json')
+        with system_test_utilities.GrpcServerProcess(config_file_path) as proc:
+            channel = grpc.insecure_channel(f"localhost:{proc.server_port}")
+            yield channel
+
+    @pytest.fixture(scope='class')
+    def session_creation_kwargs(self, grpc_channel):
+        grpc_options = nidmm.GrpcSessionOptions(grpc_channel, '')
+        return {'grpc_options': grpc_options}
+
+
+class TestGrpcNoTLS(SystemTests):
+    @pytest.fixture(scope='class')
+    def grpc_channel(self):
+        system_test_utilities.write_grpc_device_server_config(use_tls_config=False)
+
         current_directory = os.path.dirname(os.path.abspath(__file__))
         config_file_path = os.path.join(current_directory, 'grpc_server_config.json')
         with system_test_utilities.GrpcServerProcess(config_file_path) as proc:

@@ -1,8 +1,10 @@
+import json
 import os
 import pathlib
 import pytest
 import re
 import subprocess
+import sys
 import threading
 import time
 
@@ -104,3 +106,103 @@ def impl_test_multi_threading_ivi_synchronized_wrapper_releases_lock(ivi_method_
     t2.start()
     t2.join()
     assert not t2.is_alive()
+
+
+def exchange_certificates(
+    server_host: str,
+    server_user: str | None = None,
+    client_host: str | None = None,
+    client_user: str | None = None,
+    verbosity: int = 2,
+):
+    script_path = (
+        r"C:\NITests\nitlsconfigtest\exchange_certificates.py"
+        if sys.platform == "win32" else
+        r"/opt/NITests/nitlsconfigtest/exchange_certificates.py"
+    )
+    if not pathlib.Path(script_path).is_file():
+        raise FileNotFoundError(f"Certificate exchange script not found: {script_path}")
+
+    server_host_arg = f"--server-host={server_host}"
+    server_user_arg = f"--server-user={server_user}" if server_user else "--local-server"
+    client_host_arg = f"--client-host={client_host}" if client_host else None
+    client_user_arg = f"--client-user={client_user}" if client_user else None
+
+    verbosity = max(0, min(verbosity, 4))
+    verbosity_arg = {
+        0: "-qq",
+        1: "-q",
+        3: "-v",
+        4: "-vv",
+    }.get(verbosity)
+
+    command = [sys.executable, str(pathlib.Path(script_path)), server_host_arg, server_user_arg]
+    command.extend(arg for arg in (client_host_arg, client_user_arg, verbosity_arg) if arg is not None)
+    subprocess.run(command, check=True)
+
+
+def configure_tls_modes(
+    service: str,
+    server_host: str,
+    server_user: str | None = None,
+    client_host: str | None = None,
+    client_user: str | None = None,
+    server_cert_mode: str | None = None,
+    server_client_mode: str | None = None,
+    client_cert_mode: str | None = None,
+    client_server_mode: str | None = None,
+):
+    script_path = (
+        r"C:\NITests\nitlsconfigtest\configure_tls_modes.py"
+        if sys.platform == "win32" else
+        r"/opt/NITests/nitlsconfigtest/configure_tls_modes.py"
+    )
+    if not pathlib.Path(script_path).is_file():
+        raise FileNotFoundError(f"Configure TLS modes script not found: {script_path}")
+
+    service_arg = f"--service={service}"
+    server_host_arg = f"--server-host={server_host}"
+    server_user_arg = f"--server-user={server_user}" if server_user else "--local-server"
+    client_host_arg = f"--client-host={client_host}" if client_host else None
+    client_user_arg = f"--client-user={client_user}" if client_user else None
+    server_cert_mode_arg = f"--server-certificate-mode={server_cert_mode}" if server_cert_mode else None
+    server_client_mode_arg = f"--server-client-mode={server_client_mode}" if server_client_mode else None
+    client_cert_mode_arg = f"--client-certificate-mode={client_cert_mode}" if client_cert_mode else None
+    client_server_mode_arg = f"--client-server-mode={client_server_mode}" if client_server_mode else None
+
+    command = [sys.executable, str(pathlib.Path(script_path)), service_arg, server_host_arg, server_user_arg]
+    command.extend(
+        arg
+        for arg in (
+            client_host_arg,
+            client_user_arg,
+            server_cert_mode_arg,
+            server_client_mode_arg,
+            client_cert_mode_arg,
+            client_server_mode_arg,
+        )
+        if arg is not None
+    )
+    subprocess.run(command, check=True)
+
+
+def write_grpc_device_server_config(use_tls_config: bool = True):
+    config_path = (
+        r"C:\Program Files\National Instruments\Shared\NI gRPC Device Server\server_config.json" 
+        if sys.platform == "win32" else
+        r"/etc/ni_grpc_device_server/server_config.json"
+    )
+    if not os.path.isfile(config_path):
+        raise FileNotFoundError(f"NI gRPC Device Server config file not found: {config_path}")
+
+    config = {
+        "address": "[::]",
+        "port": 31763,
+    }
+    if use_tls_config:
+        config["security"] = "ni-tls-config"
+        config["feature_toggles"] = {"ni-tls-config": True}
+
+    with open(config_path, "w", encoding="utf-8") as config_file:
+        json.dump(config, config_file, indent=4)
+        config_file.write("\n")
