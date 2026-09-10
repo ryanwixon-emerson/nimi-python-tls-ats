@@ -333,12 +333,12 @@ class TestGrpcSecuredTLS(SystemTests):
         system_test_utilities.write_grpc_device_server_config(use_tls_config=True)
         system_test_utilities.exchange_certificates("localhost")
         system_test_utilities.configure_tls_modes(
-            "ni-grpc-device-server",
-            "localhost",
-            "Disabled",
-            "Disabled",
-            "Disabled",
-            "Disabled"
+            service="ni-grpc-device-server",
+            server_host="localhost",
+            server_cert_mode="ManagedSelfSigned",
+            server_client_mode="ManagedSelfSigned",
+            client_cert_mode="Managed",
+            client_server_mode="TrustedCertificates"
         )
 
         current_directory = os.path.dirname(os.path.abspath(__file__))
@@ -351,6 +351,85 @@ class TestGrpcSecuredTLS(SystemTests):
     def session_creation_kwargs(self, grpc_channel):
         grpc_options = nidmm.GrpcSessionOptions(grpc_channel, '')
         return {'grpc_options': grpc_options}
+    
+    def test_unsecured_client(self, grpc_channel):
+        system_test_utilities.configure_tls_modes(
+            service="ni-grpc-device-server",
+            server_host="localhost",
+            server_cert_mode="ManagedSelfSigned",
+            server_client_mode="ManagedSelfSigned",
+            client_cert_mode="Disabled",
+            client_server_mode="Disabled"
+        )
+
+        grpc_options = nidmm.GrpcSessionOptions(grpc_channel, '')
+        try:
+            with pytest.raises(nidmm.Error) as exc_info:
+                with nidmm.Session('FakeDevice', False, True, 'Simulate=1, DriverSetup=Model:4082; BoardType:PXIe', grpc_options=grpc_options):
+                    pass
+
+            assert exc_info.value.rpc_code == grpc.StatusCode.UNAVAILABLE
+            assert exc_info.value.description == 'Failed to connect to server'
+        finally:
+            # Restore the normal TLS configuration
+            system_test_utilities.configure_tls_modes(
+                service="ni-grpc-device-server",
+                server_host="localhost",
+                server_cert_mode="ManagedSelfSigned",
+                server_client_mode="ManagedSelfSigned",
+                client_cert_mode="Managed",
+                client_server_mode="TrustedCertificates"
+            )
+
+    def test_unsecured_server(self, grpc_channel):
+        system_test_utilities.configure_tls_modes(
+            service="ni-grpc-device-server",
+            server_host="localhost",
+            server_cert_mode="Disabled",
+            server_client_mode="Disabled",
+            client_cert_mode="Managed",
+            client_server_mode="TrustedCertificates"
+        )
+
+        grpc_options = nidmm.GrpcSessionOptions(grpc_channel, '')
+        try:
+            with pytest.raises(nidmm.Error) as exc_info:
+                with nidmm.Session('FakeDevice', False, True, 'Simulate=1, DriverSetup=Model:4082; BoardType:PXIe', grpc_options=grpc_options):
+                    pass
+
+            assert exc_info.value.rpc_code == grpc.StatusCode.UNAVAILABLE
+            assert exc_info.value.description == 'Failed to connect to server'
+        finally:
+            # Restore the normal TLS configuration
+            system_test_utilities.configure_tls_modes(
+                service="ni-grpc-device-server",
+                server_host="localhost",
+                server_cert_mode="ManagedSelfSigned",
+                server_client_mode="ManagedSelfSigned",
+                client_cert_mode="Managed",
+                client_server_mode="TrustedCertificates"
+            )
+    
+    def test_no_certificates(self, grpc_channel):
+        trusted_client_folder = (
+            r"C:/ProgramData/National Instruments/nitlsconfig/server.d/ni-grpc-device/trusted.d"
+            if sys.platform == "win32" else
+            r"/etc/nitlsconfig/server.d/ni-grpc-device/trusted.d"
+        )
+        if os.path.exists(trusted_client_folder):
+            shutil.rmtree(trusted_client_folder)
+
+        grpc_options = nidmm.GrpcSessionOptions(grpc_channel, '')
+        try:
+            with pytest.raises(nidmm.Error) as exc_info:
+                with nidmm.Session('FakeDevice', False, True, 'Simulate=1, DriverSetup=Model:4082; BoardType:PXIe', grpc_options=grpc_options):
+                    pass
+
+            assert exc_info.value.rpc_code == grpc.StatusCode.UNAVAILABLE
+            assert exc_info.value.description == 'Failed to connect to server'
+        finally:
+            # Reprovision to restore the deleted certificate
+            system_test_utilities.exchange_certificates("localhost")
 
 
 class TestGrpcUnsecuredTLS(SystemTests):
@@ -359,12 +438,12 @@ class TestGrpcUnsecuredTLS(SystemTests):
         system_test_utilities.write_grpc_device_server_config(use_tls_config=True)
         system_test_utilities.exchange_certificates("localhost")
         system_test_utilities.configure_tls_modes(
-            "ni-grpc-device-server",
-            "localhost",
-            "ManagedSelfSigned",
-            "ManagedSelfSigned",
-            "Managed",
-            "TrustedCertificates"
+            service="ni-grpc-device-server",
+            server_host="localhost",
+            server_cert_mode="Disabled",
+            server_client_mode="Disabled",
+            client_cert_mode="Disabled",
+            client_server_mode="Disabled"
         )
 
         current_directory = os.path.dirname(os.path.abspath(__file__))

@@ -116,7 +116,7 @@ def exchange_certificates(
     verbosity: int = 2,
 ):
     script_path = (
-        r"C:\NITests\nitlsconfigtest\exchange_certificates.py"
+        r"C:/NITests/nitlsconfigtest/exchange_certificates.py"
         if sys.platform == "win32" else
         r"/opt/NITests/nitlsconfigtest/exchange_certificates.py"
     )
@@ -153,7 +153,7 @@ def configure_tls_modes(
     client_server_mode: str | None = None,
 ):
     script_path = (
-        r"C:\NITests\nitlsconfigtest\configure_tls_modes.py"
+        r"C:/NITests/nitlsconfigtest/configure_tls_modes.py"
         if sys.platform == "win32" else
         r"/opt/NITests/nitlsconfigtest/configure_tls_modes.py"
     )
@@ -188,7 +188,7 @@ def configure_tls_modes(
 
 def write_grpc_device_server_config(use_tls_config: bool = True):
     config_path = (
-        r"C:\Program Files\National Instruments\Shared\NI gRPC Device Server\server_config.json" 
+        r"C:/Program Files/National Instruments/Shared/NI gRPC Device Server/server_config.json" 
         if sys.platform == "win32" else
         r"/etc/ni_grpc_device_server/server_config.json"
     )
