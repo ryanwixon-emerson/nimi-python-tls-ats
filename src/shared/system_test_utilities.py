@@ -115,6 +115,17 @@ def exchange_certificates(
     client_user: str | None = None,
     verbosity: int = 2,
 ):
+    # 26.5 versions of ni-grpc-device server installers do not properly create the trusted.d directory,
+    # which causes issues with the certificate exchange process. This has been fixed in the 26.8 version
+    # of the installer, but it has not yet been released. For now, we're creating it manually; this can
+    # be removed once nimibot system tests are updated to test against 26.8 versions of the drivers.
+    trusted_servers_path = pathlib.Path(
+        r"C:/ProgramData/National Instruments/nitlsconfig/server.d/ni-grpc-device/trusted.d"
+        if sys.platform == "win32" else
+        r"/etc/nitlsconfig/server.d/ni-grpc-device/trusted.d"
+    )
+    trusted_servers_path.mkdir(parents=True, exist_ok=True)
+
     script_path = (
         r"C:/NITests/nitlsconfigtest/exchange_certificates.py"
         if sys.platform == "win32" else
@@ -184,25 +195,3 @@ def configure_tls_modes(
         if arg is not None
     )
     subprocess.run(command, check=True)
-
-
-def write_grpc_device_server_config(use_tls_config: bool = True):
-    config_path = (
-        r"C:/Program Files/National Instruments/Shared/NI gRPC Device Server/server_config.json" 
-        if sys.platform == "win32" else
-        r"/etc/ni_grpc_device_server/server_config.json"
-    )
-    if not os.path.isfile(config_path):
-        raise FileNotFoundError(f"NI gRPC Device Server config file not found: {config_path}")
-
-    config = {
-        "address": "[::]",
-        "port": 31763,
-    }
-    if use_tls_config:
-        config["security"] = "ni-tls-config"
-        config["feature_toggles"] = {"ni-tls-config": True}
-
-    with open(config_path, "w", encoding="utf-8") as config_file:
-        json.dump(config, config_file, indent=4)
-        config_file.write("\n")
